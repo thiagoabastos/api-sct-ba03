@@ -1,0 +1,427 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum TipoEvento {
+  assembleia
+  congresso
+}
+
+enum StatusPagamento {
+  pendente
+  pago
+}
+
+enum AvaliacaoMotorista {
+  EXCELENTE
+  BOA
+  REGULAR
+  MA
+}
+
+enum AvaliacaoVeiculo {
+  EXCELENTE
+  BOA
+  REGULAR
+  PESSIMA
+}
+
+enum SimNao {
+  SIM
+  NAO
+}
+
+enum VelocidadeTrafego {
+  DENTRO_DO_PERMITIDO
+  ACIMA_DO_PERMITIDO
+}
+
+model Congregacao {
+  id   Int    @id @default(autoincrement())
+  nome String @unique(map: "uk_congregacao_nome") @db.VarChar(50)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  apanhas  Apanha[]
+  pessoas  Pessoa[]
+  usuarios Usuario[]
+  eventos  EventoCongregacao[]
+  organizarCarros OrganizarCarro[]
+  arranjos ArranjoCongregacao[]
+
+  @@map("congregacoes")
+}
+
+model Apanha {
+  id Int @id @default(autoincrement())
+  local String @db.VarChar(200)
+  congregacaoId  Int @map("congregacao_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  congregacao Congregacao @relation(fields: [congregacaoId], references: [id], onDelete: Cascade, map: "fk_apanha_congregacao")
+
+  organizarCarros OrganizarCarroApanha[]
+
+  @@index([congregacaoId], map: "idx_apanha_congregacao_id")
+  @@map("apanha")
+}
+
+model Pessoa {
+  id   Int    @id @default(autoincrement())
+  nome String @unique(map: "uk_pessoa_nome") @db.VarChar(100)
+  congregacaoId Int @map("congregacao_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  congregacao Congregacao @relation(fields: [congregacaoId], references: [id], onDelete: Cascade, map: "fk_pessoa_congregacao")
+
+  nomesArranjo NomeArranjoCongregacao[]
+
+  @@index([congregacaoId], map: "idx_pessoa_congregacao_id")
+  @@map("pessoas")
+}
+
+model TipoUsuario {
+  id        Int     @id @default(autoincrement())
+  nome      String  @unique(map: "uk_tipo_usuario_nome") @db.VarChar(20)
+  descricao String? @db.VarChar(255)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  usuarios   Usuario[]
+  permissoes UsuarioTipoPermissao[]
+  tutoriais  Tutorial[]
+
+  @@map("tipos_usuarios")
+}
+
+model Permissao {
+  id        Int     @id @default(autoincrement())
+  nome      String  @unique(map: "uk_permissao_nome") @db.VarChar(100)
+  descricao String? @db.VarChar(255)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  tiposUsuarios UsuarioTipoPermissao[]
+
+  @@map("permissoes")
+}
+
+model Usuario {
+  id    Int    @id @default(autoincrement())
+  nome  String @unique(map: "uk_usuario_nome") @db.VarChar(100)
+  email   String  @unique(map: "uk_usuario_email") @db.VarChar(100)
+  celular String? @db.VarChar(15)
+  senha   String? @db.VarChar(255)
+  senhaCreate DateTime? @map("senha_create")
+  congregacaoId Int @map("congregacao_id")
+  tipoUsuarioId Int @map("tipos_usuarios_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  congregacao Congregacao @relation(fields: [congregacaoId], references: [id], onDelete: Cascade, map: "fk_usuario_congregacao")
+  tipoUsuario TipoUsuario @relation(fields: [tipoUsuarioId], references: [id], onDelete: Restrict, map: "fk_usuario_tipo_usuario")
+
+  organizadorArranjosCriados     ArranjoCongregacao[] @relation("CriadorDoArranjo")
+  organizadorArranjosAtualizados ArranjoCongregacao[] @relation("AtualizadorDoArranjo")
+  capitao OrganizarCarro[]
+
+  @@index([congregacaoId], map: "idx_usuario_congregacao_id")
+  @@index([tipoUsuarioId], map: "idx_usuario_tipo_usuario_id")
+  @@map("usuarios")
+}
+
+model UsuarioTipoPermissao {
+  usuarioTipoId Int @map("usuario_tipo_id")
+  permissaoId   Int @map("permissao_id")
+
+  usuarioTipo TipoUsuario @relation(fields: [usuarioTipoId], references: [id], onDelete: Cascade, map: "fk_usuario_tipo_permissao_usuario_tipo")
+  permissao Permissao @relation(fields: [permissaoId], references: [id], onDelete: Cascade, map: "fk_usuario_tipo_permissao_permissao")
+
+  @@id([usuarioTipoId, permissaoId])
+  @@index([usuarioTipoId], map:"idx_usuario_tipo_permissao_usuario_tipo_id")
+  @@index([permissaoId], map:"idx_usuario_tipo_permissao_permissao_id")
+  @@map("usuarios_tipos_permissoes")
+}
+
+model Tutorial {
+  id Int @id @default(autoincrement())
+  tipoUsuarioId Int? @map("tipo_usuario_id")
+  texto String? @db.VarChar(300)
+  video String? @db.VarChar(300)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  
+  tipoUsuario TipoUsuario? @relation(fields: [tipoUsuarioId], references: [id], onDelete: SetNull, map: "fk_tutorial_tipo_usuario")
+
+  @@index([tipoUsuarioId], map: "idx_tutorial_tipo_usuario_id")
+  @@map("tutorial")
+}
+
+model EventoTipo {
+  id Int @id @default(autoincrement())
+  nome String @unique(map: "uk_evento_tipo_nome") @db.VarChar(60)
+  tipo TipoEvento
+  horario String @db.VarChar(2)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  eventos Evento[]
+
+  @@map("evento_tipo")
+}
+
+model Auditorio {
+  id Int @id @default(autoincrement())
+  nome String @db.VarChar(2)
+  fusoHorario String @map("fuso_horario") @db.VarChar(2)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  eventos Evento[]
+
+  @@map("auditorio")
+}
+
+model Evento {
+  id Int @id @default(autoincrement())
+  eventoTipoId Int @map("evento_tipo_id")
+  auditorioId Int? @map("auditorio_id")
+  ano String @db.VarChar(4)
+  valor Decimal? @db.Decimal(5, 2)
+  dataEvento DateTime? @map("data_evento") @db.Date
+  dataLimiteNome DateTime? @map("data_limite_nome") @db.Date
+  dataLimitePagamento DateTime? @map("data_limite_pagamento") @db.Date
+  dataLimiteDeposito DateTime? @map("data_limite_deposito") @db.Date
+  horarioSaidaOnibus String? @map("horario_saida_onibus") @db.VarChar(5)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  eventoTipo EventoTipo @relation(fields: [eventoTipoId], references: [id], onDelete: Restrict, map: "fk_evento_evento_tipo")
+  auditorio Auditorio? @relation(fields: [auditorioId], references: [id], onDelete: SetNull, map: "fk_evento_auditorio")
+
+  congregacoes EventoCongregacao[]
+  arranjos ArranjoCongregacao[]
+  organizarCarros OrganizarCarro[]
+
+  @@index([eventoTipoId], map: "idx_evento_evento_tipo_id")
+  @@index([auditorioId], map: "idx_evento_auditorio_id")
+  @@map("eventos")
+}
+
+model EventoCongregacao {
+  eventoId Int @map("evento_id")
+  congregacaoId Int @map("congregacao_id")
+
+  evento Evento @relation(fields: [eventoId], references: [id], onDelete: Cascade, map: "fk_evento_congregacao_evento")
+  congregacao Congregacao @relation(fields: [congregacaoId], references: [id], onDelete: Cascade, map: "fk_evento_congregacao_congregacao")
+
+  @@id([eventoId, congregacaoId])
+  @@index([eventoId, congregacaoId], map: "idx_evento_congregacao_evento_congregacao")
+  @@map("eventos_congregacoes")
+}
+
+model ArranjoCongregacao {
+  id Int @id @default(autoincrement())
+  congregacaoId Int @map("congregacao_id")
+  eventoId      Int @map("evento_id")
+  status StatusPagamento @default(pendente)
+  dataPago DateTime? @map("data_pago") @db.Date
+  observacoes String? @db.VarChar(255)
+  criadoPor Int? @map("criado_por")
+  atualizadoPor Int? @map("atualizado_por")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  congregacao Congregacao @relation(fields: [congregacaoId], references: [id], onDelete: Cascade, map: "fk_arranjo_congregacao_congregacao")
+  evento Evento @relation(fields: [eventoId], references: [id], onDelete: Cascade, map: "fk_arranjo_congregacao_evento")  
+  criado Usuario? @relation("CriadorDoArranjo",fields: [criadoPor], references: [id], onDelete: SetNull, map: "fk_arranjo_congregacao_criado_por")
+  atualizado Usuario? @relation("AtualizadorDoArranjo", fields: [atualizadoPor], references: [id], onDelete: SetNull, map: "fk_arranjo_congregacao_atualizado_por")
+  
+  nomes      NomeArranjoCongregacao[]
+  pagamentos PagamentoArranjoCongregacao[]
+
+  @@index([eventoId, congregacaoId], map: "idx_arranjo_congregacao_evento_congregacao")
+  @@index([status], map: "idx_arranjo_congregacao_status")
+  @@map("arranjo_congregacao")
+}
+
+model NomeArranjoCongregacao {
+  id Int @id @default(autoincrement())
+  pessoaId Int @map("pessoa_id")
+  arranjoCongregacaoId Int @map("arranjo_congregacao_id")
+  menorIdade Boolean @default(false) @map("menor_idade")
+  sexta   Boolean @default(false)
+  sabado  Boolean @default(false)
+  domingo Boolean @default(false)
+  carro         String? @db.VarChar(2)
+  carroSexta    String? @map("carro_sexta") @db.VarChar(2)
+  carroSabado   String? @map("carro_sabado") @db.VarChar(2)
+  carroDomingo  String? @map("carro_domingo") @db.VarChar(2)
+  ida           Boolean @default(false)
+  idaSexta      Boolean @default(false) @map("ida_sexta")
+  idaSabado     Boolean @default(false) @map("ida_sabado")
+  idaDomingo    Boolean @default(false) @map("ida_domingo")
+  volta         Boolean @default(false)
+  voltaSexta    Boolean @default(false) @map("volta_sexta")
+  voltaSabado   Boolean @default(false) @map("volta_sabado")
+  voltaDomingo  Boolean @default(false) @map("volta_domingo")
+  observacao         String? @db.VarChar(255)
+  observacaoSexta    String? @map("observacao_sexta") @db.VarChar(255)
+  observacaoSabado   String? @map("observacao_sabado") @db.VarChar(255)
+  observacaoDomingo  String? @map("observacao_domingo") @db.VarChar(255)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  pessoa Pessoa @relation(fields: [pessoaId], references: [id], onDelete: Restrict, map: "fk_nome_arranjo_congregacao_pessoa")
+  arranjoCongregacao ArranjoCongregacao @relation(fields: [arranjoCongregacaoId], references: [id], onDelete: Cascade, map: "fk_nome_arranjo_congregacao_arranjo_congregacao")
+
+  @@index([pessoaId], map: "idx_nome_arranjo_congregacao_pessoa_id")
+  @@index([arranjoCongregacaoId], map: "idx_nome_arranjo_congregacao_arranjo_congregacao_id")
+  @@map("nomes_arranjo_congregacao")
+}
+
+model FormaPagamento {
+  id Int @id @default(autoincrement())
+  nome String @db.VarChar(100)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  pagamentos PagamentoArranjoCongregacao[]
+
+  @@map("formas_pagamento")
+}
+
+model PagamentoArranjoCongregacao {
+  id Int @id @default(autoincrement())
+  arranjoCongregacaoId Int @map("arranjo_congregacao_id")
+  formaPagamentoId Int @map("forma_pagamento_id")
+  valor Decimal @db.Decimal(10, 2)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  arranjoCongregacao ArranjoCongregacao @relation(fields: [arranjoCongregacaoId], references: [id], onDelete: Restrict, map: "fk_pagamento_arranjo_congregacao_arranjo_congregacao")
+  formaPagamento FormaPagamento @relation(fields: [formaPagamentoId], references: [id], onDelete: Restrict, map: "fk_pagamento_arranjo_congregacao_forma_pagamento")
+
+  @@index([arranjoCongregacaoId], map: "idx_pagamento_arranjo_congregacao_arranjo_congregacao_id")
+  @@index([formaPagamentoId], map: "idx_pagamento_arranjo_congregacao_forma_pagamento_id")
+  @@map("pagamentos_arranjo_congregacao")
+}
+
+model OrganizarCarro {
+  id Int @id @default(autoincrement())
+  capitaoId Int? @map("capitao_id")
+  eventoId Int @map("evento_id")
+  congregacaoId Int @map("congregacao_id")
+  carro String? @db.VarChar(2)
+  dia String? @db.VarChar(10)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  
+  capitao Usuario? @relation(fields: [capitaoId], references: [id], onDelete: SetNull, map: "fk_organizar_carro_capitao")
+  evento Evento @relation(fields: [eventoId], references: [id], onDelete: Cascade, map: "fk_organizar_carro_evento")
+  congregacao Congregacao @relation(fields: [congregacaoId], references: [id], onDelete: Cascade, map: "fk_organizar_carro_congregacao")
+
+  apanhas OrganizarCarroApanha[]  
+  checklists Checklist[]
+  controlesQualidade ControleQualidade[]
+
+  @@index([eventoId], map: "idx_organizar_carro_evento_id")
+  @@index([congregacaoId], map: "idx_organizar_carro_congregacao_id")
+  @@map("organizar_carros")
+}
+
+model OrganizarCarroApanha {
+  organizarCarroId Int @map("organizar_carros_id")
+  apanhaId Int @map("apanha_id")
+
+  organizarCarro OrganizarCarro @relation(fields: [organizarCarroId], references: [id], onDelete: Cascade, map: "fk_organizar_carro_apanha_organizar_carro")
+  apanha Apanha @relation(fields: [apanhaId], references: [id], onDelete: Cascade, map: "fk_organizar_carro_apanha_apanha")
+
+  @@id([organizarCarroId, apanhaId])
+  @@index([organizarCarroId], map: "idx_organizar_carro_apanha_organizar_carro_id")
+  @@index([apanhaId], map: "idx_organizar_carro_apanha_apanha_id")
+  @@map("organizar_carros_apanha")
+}
+
+model Checklist {
+  id Int @id @default(autoincrement())
+  organizarCarroId Int @map("organizar_carros_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  organizarCarro OrganizarCarro @relation(fields: [organizarCarroId], references: [id], onDelete: Cascade, map: "fk_checklist_organizar_carro")
+
+  @@index([organizarCarroId], map: "idx_checklist_organizar_carro_id")
+  @@map("checklist")
+}
+
+model ControleQualidade {
+  id Int @id @default(autoincrement())
+  organizarCarroId Int @map("organizar_carros_id")
+  empresa String? @db.VarChar(20)
+  placa String? @db.VarChar(10)
+  numeroOnibus String? @map("numero_onibus") @db.VarChar(10)
+  motorista String? @db.VarChar(50)
+  telefoneMotorista String? @map("telefone_motorista") @db.VarChar(20)
+  aparenciaMotorista AvaliacaoMotorista? @map("aparencia__motorista")
+  educacao AvaliacaoMotorista
+  condicaoPneus AvaliacaoVeiculo? @map("condicao_pneus")
+  limpezaCarro AvaliacaoVeiculo? @map("limpeza_carro")
+  extintorIncendioDisponivel SimNao? @map("extintor_incendio_disponivel")
+  problemasQuantoHorario SimNao? @map("problemas_quanto_horario")
+  pontosEmbarqueProblemas SimNao? @map("pontos_embarque_problemas")
+  trafegouAcostamento SimNao? @map("trafegou_acostamento")
+  velocidadeTrafegou SimNao? @map("velocidade_trafegou")
+  informacoesAdicionaisSugestoes String? @map("informacoes_adicionais_sugestoes") @db.VarChar(200)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  organizarCarro OrganizarCarro @relation(fields: [organizarCarroId], references: [id], onDelete: Cascade, map: "fk_controle_qualidade_organizar_carro")
+
+  @@index([organizarCarroId], map: "idx_controle_qualidade_organizar_carro_id")
+  @@map("controle_qualidade")
+}
+
+model Empresa {
+  id Int @id @default(autoincrement())
+  nome String @db.VarChar(30)
+  telefone String @db.VarChar(15)
+  email String? @unique(map: "uk_empresa_email") @db.VarChar(100)
+  valorOnibus Decimal? @map("valor_onibus") @db.Decimal(10, 2)
+  valorPassagem Decimal? @map("valor_passagem") @db.Decimal(10, 2)
+  transferenciaBancaria String? @map("transferencia_bancaria") @db.VarChar(500)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("empresas")
+}
+
+model Documento {
+  id Int @id @default(autoincrement())
+  nome String @unique(map: "uk_documento_nome") @db.VarChar(50)
+  url String @db.VarChar(500)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("documentos")
+}
+
+model InformacaoGeral {
+  id Int @id @default(autoincrement())
+  emailAdmin String @map("email_admin") @db.VarChar(100)
+  idadeMinimaCobranca Int @map("idade_minima_cobranca")
+
+  @@map("informacoes_gerais")
+}
