@@ -1,12 +1,15 @@
-import { NestFactory } from '@nestjs/core';
+import { NestFactory, Reflector } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
-import { Reflector } from '@nestjs/core';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { PermissaoGuard } from './common/guards/permissao.guard';
+import { SanitizePipe } from './common/pipes/sanitize.pipe';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+
+  const reflector = app.get(Reflector);
+  app.useGlobalPipes(new SanitizePipe());
 
   app.useGlobalPipes(
     new ValidationPipe({
@@ -15,12 +18,11 @@ async function bootstrap() {
       forbidNonWhitelisted: true,
     }),
   );
-
-  const reflector = app.get(Reflector);
   app.useGlobalGuards(
     new JwtAuthGuard(reflector),
     new PermissaoGuard(reflector),
   );
+  app.setGlobalPrefix('api');
 
   await app.listen(process.env.PORT ?? 4000);
 }

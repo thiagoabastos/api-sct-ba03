@@ -48,15 +48,18 @@ export class AuthService {
 
         const token = this.jwtService.sign(payload);
 
-        // Retorna token + dados do usuário (sem a senha)
-        const { senha, ...dadosUsuario } = usuario;
+        // Retorna token + dados do usuário (sem a senha e sem permissoes aninhadas)
+        const { senha, tipoUsuario, ...dadosUsuario } = usuario;
+        const { permissoes: _, ...tipoUsuarioSemPermissoes } = tipoUsuario;
 
         return {
             access_token: token,
+            expiresIn: process.env.JWT_EXPIRES_IN ?? '7d',
             usuario: {
                 ...dadosUsuario,
-                permissoes,
+                tipoUsuario: tipoUsuarioSemPermissoes,
             },
+            permissoes,
         };
     }
 }
